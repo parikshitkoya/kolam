@@ -1,11 +1,14 @@
 import { Hono } from 'hono';
-import { context } from '@devvit/web/server';
+import { context, reddit } from '@devvit/web/server';
 import type { ErrorResponse, StateResponse, TapResponse } from '../../shared/api';
 import { applyTap, getState } from '../services/play';
+import { redditPoster } from '../services/post';
+import { postComment, redditCommenter, subscribe } from '../services/social';
 
 export const api = new Hono();
 
 const NOT_KOLAM: ErrorResponse = { status: 'error', message: 'not a Kolam puzzle' };
+const LOGIN: ErrorResponse = { status: 'error', message: 'login required' };
 
 api.get('/state', async (c) => {
   const { postId, userId } = context;
@@ -22,7 +25,7 @@ api.get('/state', async (c) => {
 
 api.post('/tap', async (c) => {
   const { postId, userId } = context;
-  if (!userId) return c.json<ErrorResponse>({ status: 'error', message: 'login required' }, 401);
+  if (!userId) return c.json<ErrorResponse>(LOGIN, 401);
   if (!postId) return c.json<ErrorResponse>(NOT_KOLAM, 404);
   let body: unknown;
   try {
@@ -49,5 +52,51 @@ api.post('/tap', async (c) => {
   } catch (e) {
     console.error('/api/tap failed', e);
     return c.json<ErrorResponse>({ status: 'error', message: 'server error' }, 500);
+  }
+});
+
+
+const bodyOrEmpty = async (req: { json: () => Promise<unknown> }): Promise<unknown> => {
+  try {
+    return await req.json();
+  } catch {
+    return {};
+  }
+};
+
+api.post('/comment', async (c) => {
+  const { postId, userId } = context;
+  if (!userId) return c.json<ErrorResponse>(LOGIN, 401);
+  if (!postId) return c.json<ErrorResponse>(NOT_KOLAM, 404);
+  try {
+    const out = await postComment(postId, userId, await bodyOrEmpty(c.req), {
+      commenter: redditCommenter,
+      poster: redditPoster,
+    });
+    switch (out.kind) {
+      case 'ok':
+        return c.json({ status: 'ok', commentId: out.commentId }, 200);
+      case 'already':
+        return c.json<ErrorResponse>({ status: 'error', message: 'already' }, 409);
+      case 'notDone':
+        return c.json<ErrorResponse>({ status: 'error', message: 'notDone' }, 400);
+      case 'notfound':
+        return c.json<ErrorResponse>(NOT_KOLAM, 404);
+    }
+  } catch (e) {
+    console.error('/api/comment failed', e);
+    return c.json<ErrorResponse>({ status: 'error', message: 'reddit error' }, 502);
+  }
+});
+
+api.post('/subscribe', async (c) => {
+  const { userId } = context;
+  if (!userId) return c.json<ErrorResponse>(LOGIN, 401);
+  try {
+    await subscribe(userId, { subscribeToCurrentSubreddit: () => reddit.subscribeToCurrentSubreddit() });
+    return c.json({ status: 'ok' }, 200);
+  } catch (e) {
+    console.error('/api/subscribe failed', e);
+    return c.json<ErrorResponse>({ status: 'error', message: 'reddit error' }, 502);
   }
 });

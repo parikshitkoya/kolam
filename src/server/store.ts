@@ -95,6 +95,10 @@ export const setSticky = async (postId: string, commentId: string): Promise<void
   await redis.hSet(K.sticky, { [postId]: commentId });
 };
 
+export const clearSticky = async (postId: string): Promise<void> => {
+  await redis.hDel(K.sticky, [postId]);
+};
+
 /** SET NX with expiry. True if this caller took the lock. */
 export const tryLock = async (key: string, ttlSec: number): Promise<boolean> =>
   (await redis.set(key, '1', { nx: true, expiration: new Date(Date.now() + ttlSec * 1000) })) ===
