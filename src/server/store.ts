@@ -34,6 +34,8 @@ const K = {
   prog: (day: number) => `prog:${day}`,
   stats: (day: number) => `stats:${day}`,
   streak: 'streak',
+  sub: 'sub',
+  commented: (day: number) => `commented:${day}`,
 } as const;
 
 const parsePuzzle = (x: unknown): PuzzleRecord | null => {
@@ -160,4 +162,28 @@ export const getStreak = async (userId: string): Promise<Streak | null> =>
 
 export const setStreak = async (userId: string, s: Streak): Promise<void> => {
   await redis.hSet(K.streak, { [userId]: JSON.stringify(s) });
+};
+
+// --- social (M2) -----------------------------------------------------------------------------
+
+export const isSubscribed = async (userId: string): Promise<boolean> =>
+  (await redis.hGet(K.sub, userId)) === '1';
+
+export const setSubscribed = async (userId: string): Promise<void> => {
+  await redis.hSet(K.sub, { [userId]: '1' });
+};
+
+export const getCommented = async (day: number, userId: string): Promise<string | null> =>
+  (await redis.hGet(K.commented(day), userId)) ?? null;
+
+/** Claim the player's one score comment for the day. True if this call claimed it. */
+export const setCommentedNX = async (day: number, userId: string, commentId: string): Promise<boolean> =>
+  (await redis.hSetNX(K.commented(day), userId, commentId)) === 1;
+
+export const setCommented = async (day: number, userId: string, commentId: string): Promise<void> => {
+  await redis.hSet(K.commented(day), { [userId]: commentId });
+};
+
+export const clearCommented = async (day: number, userId: string): Promise<void> => {
+  await redis.hDel(K.commented(day), [userId]);
 };

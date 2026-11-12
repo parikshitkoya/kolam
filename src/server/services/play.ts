@@ -4,6 +4,7 @@ import {
   isRecord,
   type Progress,
   type Result,
+  type Stats,
   type StateResponse,
   type Streak,
   type TapResponse,
@@ -12,13 +13,16 @@ import { dayNumber } from '../../shared/day';
 import { parseStart } from '../../shared/kolam/core';
 import { replay } from '../../shared/kolam/replay';
 import { LAYOUTS, recipeBoard } from '../kolam/daily';
+import { reddit } from '@devvit/web/server';
 import {
+  getCommented,
   getDayForPost,
   getProgress,
   getPuzzle,
   getStats,
   getStreak,
   incrStats,
+  isSubscribed,
   setStreak,
   updateProgress,
   type PuzzleRecord,
@@ -39,6 +43,24 @@ const puzzleForPost = async (postId: string): Promise<PuzzleRecord | null> => {
   return getPuzzle(day);
 };
 
+/** The result card payload; used by getState (reload) and applyTap (first completion). */
+export const buildResult = (
+  progress: Progress,
+  puzzle: PuzzleRecord,
+  streak: Streak | null,
+  stats: Stats
+): Result => {
+  const { B, O } = recipeBoard(`${puzzle.layout}:${puzzle.group}`);
+  return {
+    trail: replay(B, O, parseStart(puzzle.start), progress.taps).trail,
+    taps: progress.taps.length,
+    par: puzzle.par,
+    hints: progress.hints,
+    streak,
+    stats,
+  };
+};
+
 export const getState = async (
   postId: string,
   userId: string | undefined,
@@ -57,8 +79,19 @@ export const getState = async (
     loggedIn: Boolean(userId),
     progress,
     streak,
+    subscribed: userId ? await isSubscribed(userId) : false,
+    commented: userId ? (await getCommented(p.day, userId)) !== null : false,
+    username: userId ? ((await reddit.getCurrentUsername()) ?? null) : null,
   };
-  if (progress?.done) state.stats = await getStats(p.day);
+  if (progress?.done) {
+    const stats = await getStats(p.day);
+    state.stats = stats;
+    try {
+      state.result = buildResult(progress, p, streak, stats);
+    } catch {
+      // stored taps invalid: no result card
+    }
+  }
   return state;
 };
 
@@ -137,14 +170,7 @@ export const applyTap = async (
   const body: TapResponse = { status: 'ok', loops: r.loops, taps: entry.taps.length, done: entry.done };
   if (entry.done) {
     if (d === 'retry') streak = p.day === dayNumber(now) ? await getStreak(userId) : null;
-    const result: Result = {
-      trail: r.trail,
-      taps: entry.taps.length,
-      par: p.par,
-      hints: entry.hints,
-      streak,
-      stats: await getStats(p.day),
-    };
+    const result = buildResult(entry, p, streak, await getStats(p.day));
     body.result = result;
   }
   return { kind: 'ok', body };

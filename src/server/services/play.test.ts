@@ -1,9 +1,21 @@
 import { expect, describe } from 'vitest';
 import { createDevvitTest } from '@devvit/test/server/vitest';
 import { parseStart } from '../../shared/kolam/core';
+import { replay } from '../../shared/kolam/replay';
 import { recipeBoard } from '../kolam/daily';
 import { solve } from '../kolam/solver';
-import { getProgress, getStats, getStreak, putPuzzleNX, setPostMapping, setStreak } from '../store';
+import {
+  getCommented,
+  getProgress,
+  getStats,
+  getStreak,
+  isSubscribed,
+  putPuzzleNX,
+  setCommentedNX,
+  setPostMapping,
+  setStreak,
+  setSubscribed,
+} from '../store';
 import { applyTap, getState, nextStreak, overBucket } from './play';
 
 const test = createDevvitTest();
@@ -94,6 +106,7 @@ test('getState reports puzzle and progress; stats only when done', async () => {
     status: 'ok', day: 1, date: '2026-11-23',
     puzzle: { rows: [3, 3, 3], group: 'mirror', start: '000101011000' },
     par: 2, loggedIn: false, progress: null, streak: null,
+    subscribed: false, commented: false, username: null,
   });
   await tap('t2_a', SOL[0] ?? -1, 0);
   const s1 = await getState(POST, 't2_a', NOW);
@@ -137,4 +150,35 @@ test('nextStreak and overBucket', () => {
   expect(overBucket(4, 2)).toBe(2);
   expect(overBucket(30, 2)).toBe(5);
   expect(overBucket(1, 2)).toBe(0);
+});
+
+test('getState carries the result once solved, with the replayed trail', async () => {
+  await seed();
+  const before = await getState(POST, 't2_a', NOW);
+  expect(before?.result).toBeUndefined();
+  expect(before?.commented).toBe(false);
+  expect(before?.subscribed).toBe(false);
+  await tap('t2_a', SOL[0] ?? -1, 0);
+  await tap('t2_a', SOL[1] ?? -1, 1);
+  const s = await getState(POST, 't2_a', NOW);
+  const expected = replay(B, O, parseStart('000101011000'), SOL).trail;
+  expect(s?.result?.trail).toEqual(expected);
+  expect(s?.result?.taps).toBe(2);
+  expect(s?.result?.par).toBe(2);
+  expect(s?.result?.streak).toEqual({ current: 1, best: 1, lastDay: 1 });
+  expect(s?.result?.stats.solved).toBe(1);
+  expect(s?.commented).toBe(false);
+  expect(s?.username).toBe('testuser');
+  const anon = await getState(POST, undefined, NOW);
+  expect(anon?.username).toBeNull();
+});
+
+test('store: subscribed and commented flags', async () => {
+  expect(await isSubscribed('t2_a')).toBe(false);
+  await setSubscribed('t2_a');
+  expect(await isSubscribed('t2_a')).toBe(true);
+  expect(await getCommented(1, 't2_a')).toBeNull();
+  expect(await setCommentedNX(1, 't2_a', 'pending')).toBe(true);
+  expect(await setCommentedNX(1, 't2_a', 'x')).toBe(false);
+  expect(await getCommented(1, 't2_a')).toBe('pending');
 });

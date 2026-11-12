@@ -40,10 +40,17 @@ export const parseStateResponse = (x: unknown): StateResponse | null => {
     loggedIn,
     progress,
     streak,
+    subscribed: x.subscribed === true,
+    commented: x.commented === true,
+    username: typeof x.username === 'string' ? x.username : null,
   };
   if (x.stats !== undefined) {
     const stats = parseStats(x.stats);
     if (stats) out.stats = stats;
+  }
+  if (x.result !== undefined) {
+    const result = parseResult(x.result);
+    if (result) out.result = result;
   }
   return out;
 };
