@@ -57,7 +57,7 @@ export const App = () => {
             commented={g.commented}
             onComment={g.comment}
             onSubscribe={g.subscribe}
-            onLogin={() => {}}
+            onLogin={g.login}
           />
         )
       }

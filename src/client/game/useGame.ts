@@ -1,7 +1,7 @@
 // Game state: optimistic taps, ordered server sync, logged-out local play, offline fallback,
 // and (M2) the result card, hints, comment and subscribe.
 import { useEffect, useState } from 'react';
-import { context, showToast } from '@devvit/web/client';
+import { context, showLoginPrompt, showToast } from '@devvit/web/client';
 import { parsePostData, type Result, type StateResponse } from '../../shared/api';
 import { dateLabel } from '../../shared/day';
 import { assignColours } from '../../shared/kolam/colours';
@@ -17,7 +17,7 @@ import {
 } from '../../shared/kolam/core';
 import { replay } from '../../shared/kolam/replay';
 import { fetchState, postComment, postSubscribe, requestHint, sendTap } from './api';
-import { loadLocal, saveLocal } from './storage';
+import { clearLocal, loadLocal, saveLocal } from './storage';
 import { TapQueue } from './tapQueue';
 
 export type Phase = 'loading' | 'ready' | 'notKolam' | 'offline';
@@ -134,6 +134,14 @@ const createController = (set: Setters) => {
     if (s.loggedIn) {
       setMode('server');
       taps = s.progress?.taps ?? [];
+      // Local progress is never merged into the account (design §3.4). Say so once if it was a finish.
+      const local = loadLocal(info.day);
+      if (local) {
+        if (local.done && taps.length === 0) {
+          showToast("Your earlier taps on this device weren't saved to your account");
+        }
+        clearLocal(info.day);
+      }
     } else {
       setMode('local');
       taps = loadLocal(info.day)?.taps ?? [];
@@ -278,7 +286,13 @@ const createController = (set: Setters) => {
     return false;
   };
 
-  return { load, retry, tap, hint, comment, subscribe };
+  /** Logged out: keep the finished game, then ask Reddit to log in (the page reloads). */
+  const login = () => {
+    if (game) saveLocal(game.day, { taps: game.taps, hints: 0, done: game.done });
+    showLoginPrompt();
+  };
+
+  return { load, retry, tap, hint, comment, subscribe, login };
 };
 
 export const useGame = () => {
@@ -331,5 +345,6 @@ export const useGame = () => {
     hint: () => void ctl.hint(),
     comment: ctl.comment,
     subscribe: ctl.subscribe,
+    login: ctl.login,
   };
 };
