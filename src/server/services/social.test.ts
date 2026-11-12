@@ -1,9 +1,10 @@
-import { expect } from 'vitest';
+import { expect, vi } from 'vitest';
+import { redis } from '@devvit/web/server';
 import { createDevvitTest } from '@devvit/test/server/vitest';
 import { parseStart } from '../../shared/kolam/core';
 import { recipeBoard } from '../kolam/daily';
 import { solve } from '../kolam/solver';
-import { getCommented, getSticky, putPuzzleNX, setPostMapping, setSticky } from '../store';
+import { getCommented, getSticky, putPuzzleNX, setCommented, setPostMapping, setSticky } from '../store';
 import type { Poster } from './daily';
 import { applyTap, getState } from './play';
 import { postComment, subscribe, type Commenter } from './social';
@@ -132,4 +133,40 @@ test('subscribe records the flag for getState', async () => {
   await subscribe('t2_a', { subscribeToCurrentSubreddit: async () => void called++ });
   expect(called).toBe(1);
   expect((await getState(POST, 't2_a', NOW))?.subscribed).toBe(true);
+});
+
+test('a stale pending claim (process died mid-post) is reclaimed; a fresh one still blocks', async () => {
+  await seed();
+  await finish('t2_a');
+  await setCommented(1, 't2_a', `pending:${Date.now() - 5 * 60e3}`);
+  expect((await getState(POST, 't2_a', NOW))?.commented).toBe(false);
+  const commenter = fakeCommenter();
+  const deps = { commenter, poster: fakePoster() };
+  expect((await postComment(POST, 't2_a', {}, deps)).kind).toBe('ok');
+  expect(commenter.calls.length).toBe(1);
+
+  await setCommented(1, 't2_b', `pending:${Date.now()}`);
+  await finish('t2_b');
+  expect((await postComment(POST, 't2_b', {}, deps)).kind).toBe('already');
+  expect(commenter.calls.length).toBe(1);
+});
+
+test('a failed bookkeeping write after a successful reply keeps the claim (no double post)', async () => {
+  await seed();
+  await finish('t2_a');
+  const commenter = fakeCommenter();
+  const deps = { commenter, poster: fakePoster() };
+  const real = redis.hSet.bind(redis);
+  const spy = vi.spyOn(redis, 'hSet').mockImplementation(async (key, fields) => {
+    if (key.startsWith('commented:') && Object.values(fields).some((v) => v.startsWith('t1_'))) {
+      throw new Error('redis blip');
+    }
+    return real(key, fields);
+  });
+  const r = await postComment(POST, 't2_a', {}, deps);
+  spy.mockRestore();
+  expect(r.kind).toBe('ok');
+  expect(await getCommented(1, 't2_a')).not.toBeNull();
+  expect((await postComment(POST, 't2_a', {}, deps)).kind).toBe('already');
+  expect(commenter.calls.length).toBe(1);
 });

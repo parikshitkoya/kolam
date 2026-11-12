@@ -23,6 +23,7 @@ import {
   getStats,
   getStreak,
   incrStats,
+  isPostedComment,
   isSubscribed,
   setStreak,
   updateProgress,
@@ -42,6 +43,16 @@ const puzzleForPost = async (postId: string): Promise<PuzzleRecord | null> => {
   const day = await getDayForPost(postId);
   if (day === null) return null;
   return getPuzzle(day);
+};
+
+/** Only for the "posted as" line: a failed lookup must never fail the state. */
+const usernameOrNull = async (): Promise<string | null> => {
+  try {
+    return (await reddit.getCurrentUsername()) ?? null;
+  } catch (e) {
+    console.warn('getCurrentUsername failed', e);
+    return null;
+  }
 };
 
 /** The result card payload; used by getState (reload) and applyTap (first completion). */
@@ -81,8 +92,8 @@ export const getState = async (
     progress,
     streak,
     subscribed: userId ? await isSubscribed(userId) : false,
-    commented: userId ? (await getCommented(p.day, userId)) !== null : false,
-    username: userId ? ((await reddit.getCurrentUsername()) ?? null) : null,
+    commented: userId ? isPostedComment(await getCommented(p.day, userId)) : false,
+    username: userId ? await usernameOrNull() : null,
   };
   if (progress?.done) {
     const stats = await getStats(p.day);
@@ -182,18 +193,26 @@ export type HintOutcome =
   | { kind: 'ok'; orbit: number; hints: number }
   | { kind: 'done' }
   | { kind: 'notfound' }
-  | { kind: 'unavailable' };
+  | { kind: 'unavailable' }
+  | { kind: 'stale' };
 
 const HINT_BUDGET_MS = 8000;
 
 /** One orbit from a shortest solution from the player's current state (design §3.5). */
-export const hint = async (postId: string, userId: string, _now: number): Promise<HintOutcome> => {
+export const hint = async (
+  postId: string,
+  userId: string,
+  _now: number,
+  /** The client's tap count; a hint for any other state is refused. */
+  index?: number
+): Promise<HintOutcome> => {
   const p = await puzzleForPost(postId);
   if (!p) return { kind: 'notfound' };
   const progress = await getProgress(p.day, userId);
   if (progress?.done) return { kind: 'done' };
   const { B, O } = recipeBoard(`${p.layout}:${p.group}`);
   const taps = progress?.taps ?? [];
+  if (index !== undefined && index !== taps.length) return { kind: 'stale' };
   let current: Uint8Array;
   try {
     current = replay(B, O, parseStart(p.start), taps).woven;

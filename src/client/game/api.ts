@@ -151,10 +151,10 @@ export const postSubscribe = async (): Promise<Simple> => {
   return r.status === 200 ? { ok: true } : { ok: false, status: r.status };
 };
 
-export const requestHint = async (): Promise<
+export const requestHint = async (index: number): Promise<
   { ok: true; orbit: number; hints: number } | { ok: false; status: number }
 > => {
-  const r = await post('/api/hint', {});
+  const r = await post('/api/hint', { index });
   if (r.status === 200 && isRecord(r.json) && isInt(r.json.orbit) && isInt(r.json.hints)) {
     return { ok: true, orbit: r.json.orbit, hints: r.json.hints };
   }

@@ -45,7 +45,7 @@ export const App = () => {
       saving={saving}
       onTap={tap}
       {...(g.loggedIn ? { onHint: g.hint } : {})}
-      hintBusy={g.hintBusy}
+      hintBusy={g.hintBusy || g.saving}
       nudge={g.nudge}
       patterns={{ on: patternsOn, toggle: togglePatterns }}
       card={
@@ -54,6 +54,7 @@ export const App = () => {
             day={game.day}
             result={g.result}
             loggedIn={g.loggedIn}
+            syncing={g.account === 'syncing'}
             username={g.username}
             subredditName={g.subredditName}
             subscribed={g.subscribed}

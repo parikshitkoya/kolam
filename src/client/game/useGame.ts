@@ -18,6 +18,7 @@ import {
 } from '../../shared/kolam/core';
 import { replay } from '../../shared/kolam/replay';
 import { fetchState, postComment, postSubscribe, requestHint, sendTap } from './api';
+import { cardAccount, type CardAccount } from './account';
 import { createJourney } from './journey';
 import { clearLocal, loadLocal, saveLocal } from './storage';
 import { TapQueue } from './tapQueue';
@@ -97,7 +98,7 @@ type Setters = {
   setSaving: (s: boolean) => void;
   setServerResult: (r: Result | null) => void;
   setSocial: (s: Social) => void;
-  setLoggedIn: (b: boolean) => void;
+  setAccount: (a: CardAccount) => void;
   setJustFinished: (b: boolean) => void;
   setHints: (n: number) => void;
   setHintBusy: (b: boolean) => void;
@@ -111,6 +112,7 @@ const createController = (set: Setters) => {
   let buffer: number[] = [];
   let social: Social = { subscribed: false, commented: false, username: null };
   let hintBusy = false;
+  let syncing = false;
   let nudges = 0;
   const journey = createJourney(telemetry);
 
@@ -128,7 +130,7 @@ const createController = (set: Setters) => {
   };
   const setMode = (m: Mode) => {
     mode = m;
-    set.setLoggedIn(m === 'server');
+    set.setAccount(cardAccount(m));
   };
 
   const adopt = (s: StateResponse, extraTaps: number[] = []) => {
@@ -186,7 +188,10 @@ const createController = (set: Setters) => {
       // If the server's count after this tap disagrees with ours, adopt the server state.
       if (game && game.trail[r.taps] !== r.loops) void resync();
     },
-    onIdleChange: (idle) => set.setSaving(!idle),
+    onIdleChange: (idle) => {
+      syncing = !idle;
+      set.setSaving(!idle);
+    },
   });
 
   const goOffline = () => {
@@ -254,18 +259,24 @@ const createController = (set: Setters) => {
   };
 
   const hint = async () => {
-    if (mode !== 'server' || !game || game.done || hintBusy) return;
+    // Only from a state the server has saved: a hint for an older state would point at a tap to undo.
+    if (mode !== 'server' || !game || game.done || hintBusy || syncing) return;
+    const asked = game.taps.length;
     hintBusy = true;
     set.setHintBusy(true);
     try {
-      const r = await requestHint();
-      if (r.ok) {
+      const r = await requestHint(asked);
+      if (!game || game.taps.length !== asked) {
+        // the player tapped meanwhile: this answer is for an old state
+      } else if (r.ok) {
         nudges++;
         set.setNudge({ orbit: r.orbit, n: nudges });
         set.setHints(r.hints);
         journey.hint();
       } else if (r.status === 400) {
         void resync();
+      } else if (r.status === 409) {
+        showToast('Try the hint again in a moment');
       } else {
         showToast('No hint available right now');
       }
@@ -311,7 +322,7 @@ export const useGame = () => {
   const [saving, setSaving] = useState(false);
   const [serverResult, setServerResult] = useState<Result | null>(null);
   const [social, setSocial] = useState<Social>({ subscribed: false, commented: false, username: null });
-  const [loggedIn, setLoggedIn] = useState(false);
+  const [account, setAccount] = useState<CardAccount>('anon');
   const [justFinished, setJustFinished] = useState(false);
   const [hintsUsed, setHints] = useState(0);
   const [hintBusy, setHintBusy] = useState(false);
@@ -323,7 +334,7 @@ export const useGame = () => {
       setSaving,
       setServerResult,
       setSocial,
-      setLoggedIn,
+      setAccount,
       setJustFinished,
       setHints,
       setHintBusy,
@@ -342,7 +353,8 @@ export const useGame = () => {
     game,
     dateLabel: game ? dateLabel(game.day) : '',
     saving,
-    loggedIn,
+    loggedIn: account === 'user',
+    account,
     result,
     justFinished,
     hintsUsed,

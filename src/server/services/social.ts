@@ -4,15 +4,14 @@ import { reddit } from '@devvit/web/server';
 import { isRecord } from '../../shared/api';
 import { cleanMessage, commentText } from '../../shared/result';
 import {
+  claimComment,
   clearCommented,
   clearSticky,
-  getCommented,
   getDayForPost,
   getProgress,
   getPuzzle,
   getStats,
   setCommented,
-  setCommentedNX,
   setSubscribed,
 } from '../store';
 import { ensureSticky, type Poster } from './daily';
@@ -55,12 +54,11 @@ export const postComment = async (
 
   const message = cleanMessage(isRecord(body) ? body.message : undefined);
   // Claim before posting so a double click or a retry can never post twice.
-  if (!(await setCommentedNX(day, userId, 'pending'))) {
-    return { kind: 'already', commentId: (await getCommented(day, userId)) ?? 'pending' };
-  }
+  const claim = await claimComment(day, userId, Date.now());
+  if (!claim.claimed) return { kind: 'already', commentId: claim.held };
+  let commentId: string;
   try {
     const text = commentText(day, buildResult(progress, puzzle, null, await getStats(day)), message);
-    let commentId: string;
     if (message) {
       commentId = await deps.commenter.reply(postId, text);
     } else {
@@ -74,12 +72,18 @@ export const postComment = async (
         commentId = await deps.commenter.reply(await ensureSticky(postId, deps.poster), text);
       }
     }
-    await setCommented(day, userId, commentId);
-    return { kind: 'ok', commentId };
   } catch (e) {
+    // Nothing was posted: release the claim so the player can try again.
     await clearCommented(day, userId);
     throw e;
   }
+  // Posted. From here on never release the claim, or a retry would post a second comment.
+  try {
+    await setCommented(day, userId, commentId);
+  } catch (e) {
+    console.error(`postComment: posted ${commentId} but could not record it`, e);
+  }
+  return { kind: 'ok', commentId };
 };
 
 export const subscribe = async (

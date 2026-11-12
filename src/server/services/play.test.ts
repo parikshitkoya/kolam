@@ -1,4 +1,5 @@
-import { expect, describe } from 'vitest';
+import { expect, describe, vi } from 'vitest';
+import { reddit } from '@devvit/web/server';
 import { createDevvitTest } from '@devvit/test/server/vitest';
 import { parseStart } from '../../shared/kolam/core';
 import { replay } from '../../shared/kolam/replay';
@@ -250,4 +251,21 @@ describe('hint', () => {
       expect(ms).toBeLessThan(8000);
     }
   );
+});
+
+test('hint for a stale tap index is refused so it never answers for an old state', async () => {
+  await seed();
+  await tap('t2_a', OTHER, 0);
+  expect(await hint(POST, 't2_a', NOW, 0)).toEqual({ kind: 'stale' });
+  expect((await hint(POST, 't2_a', NOW, 1)).kind).toBe('ok');
+  expect((await getProgress(1, 't2_a'))?.hints).toBe(1);
+});
+
+test('a failed username lookup does not fail the state', async () => {
+  await seed();
+  const spy = vi.spyOn(reddit, 'getCurrentUsername').mockRejectedValue(new Error('reddit down'));
+  const s = await getState(POST, 't2_a', NOW);
+  spy.mockRestore();
+  expect(s?.status).toBe('ok');
+  expect(s?.username).toBeNull();
 });

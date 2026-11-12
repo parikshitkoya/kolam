@@ -10,6 +10,8 @@ export type ResultCardProps = {
   day: number;
   result: Result;
   loggedIn: boolean;
+  /** Logged in but offline: taps not saved yet, so no comment, join or login buttons. */
+  syncing?: boolean;
   username: string | null;
   subredditName: string;
   subscribed: boolean;
@@ -59,7 +61,9 @@ export const ResultCard = (p: ResultCardProps) => {
           </p>
         )}
       </div>
-      {confirming ? (
+      {p.syncing ? (
+        <p className="done-note">Saved when you're back online.</p>
+      ) : confirming ? (
         <CommentConfirm
           day={p.day}
           result={p.result}
