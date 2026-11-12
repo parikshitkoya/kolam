@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { context, reddit } from '@devvit/web/server';
 import type { ErrorResponse, StateResponse, TapResponse } from '../../shared/api';
-import { applyTap, getState } from '../services/play';
+import { applyTap, getState, hint } from '../services/play';
 import { redditPoster } from '../services/post';
 import { postComment, redditCommenter, subscribe } from '../services/social';
 
@@ -98,5 +98,27 @@ api.post('/subscribe', async (c) => {
   } catch (e) {
     console.error('/api/subscribe failed', e);
     return c.json<ErrorResponse>({ status: 'error', message: 'reddit error' }, 502);
+  }
+});
+
+api.post('/hint', async (c) => {
+  const { postId, userId } = context;
+  if (!userId) return c.json<ErrorResponse>(LOGIN, 401);
+  if (!postId) return c.json<ErrorResponse>(NOT_KOLAM, 404);
+  try {
+    const out = await hint(postId, userId, Date.now());
+    switch (out.kind) {
+      case 'ok':
+        return c.json({ status: 'ok', orbit: out.orbit, hints: out.hints }, 200);
+      case 'done':
+        return c.json<ErrorResponse>({ status: 'error', message: 'done' }, 400);
+      case 'notfound':
+        return c.json<ErrorResponse>(NOT_KOLAM, 404);
+      case 'unavailable':
+        return c.json<ErrorResponse>({ status: 'error', message: 'unavailable' }, 503);
+    }
+  } catch (e) {
+    console.error('/api/hint failed', e);
+    return c.json<ErrorResponse>({ status: 'error', message: 'unavailable' }, 503);
   }
 });
