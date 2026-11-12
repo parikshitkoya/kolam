@@ -1,6 +1,7 @@
 // Game state: optimistic taps, ordered server sync, logged-out local play, offline fallback,
 // and (M2) the result card, hints, comment and subscribe.
 import { useEffect, useState } from 'react';
+import { telemetry } from '@devvit/analytics/client/reddit';
 import { context, showLoginPrompt, showToast } from '@devvit/web/client';
 import { parsePostData, type Result, type StateResponse } from '../../shared/api';
 import { dateLabel } from '../../shared/day';
@@ -17,6 +18,7 @@ import {
 } from '../../shared/kolam/core';
 import { replay } from '../../shared/kolam/replay';
 import { fetchState, postComment, postSubscribe, requestHint, sendTap } from './api';
+import { createJourney } from './journey';
 import { clearLocal, loadLocal, saveLocal } from './storage';
 import { TapQueue } from './tapQueue';
 
@@ -110,6 +112,7 @@ const createController = (set: Setters) => {
   let social: Social = { subscribed: false, commented: false, username: null };
   let hintBusy = false;
   let nudges = 0;
+  const journey = createJourney(telemetry);
 
   const setPhase = (p: Phase) => {
     phase = p;
@@ -156,6 +159,7 @@ const createController = (set: Setters) => {
     set.setHints(s.progress?.hints ?? 0);
     setSocial({ subscribed: s.subscribed, commented: s.commented, username: s.username });
     setPhase('ready');
+    journey.ready();
   };
 
   const resync = async () => {
@@ -202,6 +206,7 @@ const createController = (set: Setters) => {
     }
     setGame(g);
     setPhase('offline');
+    journey.ready();
   };
 
   const load = async () => {
@@ -238,7 +243,11 @@ const createController = (set: Setters) => {
     const taps = [...g.taps, orbit];
     const next = withTaps(g, taps, g.segColour);
     setGame(next);
-    if (next.done) set.setJustFinished(true);
+    journey.tap(next.loops, next.trail[0] ?? next.loops);
+    if (next.done) {
+      set.setJustFinished(true);
+      journey.finish(taps.length, g.par);
+    }
     if (mode === 'server') queue.push({ orbit, index: taps.length - 1 });
     else if (mode === 'buffer') buffer.push(orbit);
     else saveLocal(g.day, { taps, hints: 0, done: next.done });
@@ -254,6 +263,7 @@ const createController = (set: Setters) => {
         nudges++;
         set.setNudge({ orbit: r.orbit, n: nudges });
         set.setHints(r.hints);
+        journey.hint();
       } else if (r.status === 400) {
         void resync();
       } else {
