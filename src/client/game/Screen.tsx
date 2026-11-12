@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import type { Board as BoardT, Group, Orbits } from '../../shared/kolam/core';
 import { Board } from './Board';
 import { Ledge } from './Ledge';
+import { announceText } from './announce';
 
 const REACH: Record<Group, string> = {
   mirror: 'across the mirror',
@@ -11,7 +12,17 @@ const REACH: Record<Group, string> = {
   rot4: 'at every quarter turn',
 };
 
-export const NameStrip = ({ day, date }: { day: number | null; date: string }) => (
+export type PatternsToggle = { on: boolean; toggle(): void };
+
+export const NameStrip = ({
+  day,
+  date,
+  patterns,
+}: {
+  day: number | null;
+  date: string;
+  patterns?: PatternsToggle;
+}) => (
   <header className="top">
     <div className="mark">
       <h1 className="wordmark">Kolam</h1>
@@ -19,6 +30,11 @@ export const NameStrip = ({ day, date }: { day: number | null; date: string }) =
         கோலம்
       </span>
     </div>
+    {patterns && (
+      <button type="button" className="toggle" aria-pressed={patterns.on} onClick={patterns.toggle}>
+        Patterns
+      </button>
+    )}
     {day !== null && (
       <div className="day">
         <b>No. {day}</b>
@@ -49,11 +65,12 @@ export type ScreenProps = {
   onHint?: () => void;
   hintBusy?: boolean;
   nudge?: { orbit: number; n: number } | null;
+  patterns?: PatternsToggle;
 };
 
 export const Screen = (p: ScreenProps) => (
   <main className="app">
-    <NameStrip day={p.day} date={p.date} />
+    <NameStrip day={p.day} date={p.date} {...(p.patterns ? { patterns: p.patterns } : {})} />
     <p className="rule">
       {p.done ? (
         'Drawn at the doorstep each morning, gone by night. Come back tomorrow for a new one.'
@@ -76,8 +93,12 @@ export const Screen = (p: ScreenProps) => (
         fresh={p.taps === 0}
         onTap={p.onTap}
         nudge={p.nudge ?? null}
+        patterns={p.patterns?.on ?? false}
       />
     </div>
+    <p className="sr-only" aria-live="polite">
+      {announceText(p.loops, p.done)}
+    </p>
     {p.done && p.card ? (
       p.card
     ) : (

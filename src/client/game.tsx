@@ -5,9 +5,11 @@ import { createRoot } from 'react-dom/client';
 import { ResultCard } from './game/ResultCard';
 import { NameStrip, Screen } from './game/Screen';
 import { useGame } from './game/useGame';
+import { usePatterns } from './game/prefs';
 
 export const App = () => {
   const g = useGame();
+  const [patternsOn, togglePatterns] = usePatterns();
   const { phase, game, dateLabel, saving, tap, retry } = g;
 
   if (phase === 'notKolam') {
@@ -45,6 +47,7 @@ export const App = () => {
       {...(g.loggedIn ? { onHint: g.hint } : {})}
       hintBusy={g.hintBusy}
       nudge={g.nudge}
+      patterns={{ on: patternsOn, toggle: togglePatterns }}
       card={
         g.result && (
           <ResultCard

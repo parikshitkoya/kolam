@@ -94,8 +94,9 @@ button:hover {
   border-color: var(--rice);
 }
 
-button:focus-visible {
-  outline: 2px solid var(--turmeric);
+button:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid var(--turmeric);
   outline-offset: 2px;
 }
 

@@ -11,17 +11,12 @@
   "include": [
     "../tools/preview/**/*",
     "../src/client/global.ts",
-    "../src/client/game/Screen.tsx",
-    "../src/client/game/Board.tsx",
-    "../src/client/game/Ledge.tsx",
-    "../src/client/game/geometry.ts",
+    "../src/client/game/**/*",
     "../src/shared/**/*",
-    "../src/server/kolam/**/*",
-    "../src/client/game/ResultCard.tsx",
-    "../src/client/game/CommentConfirm.tsx",
-    "../src/client/game/countdown.ts"
+    "../src/server/kolam/**/*"
   ],
   "exclude": [
-    "../**/*.test.ts"
+    "../**/*.test.ts",
+    "../src/client/game/useGame.ts"
   ]
 }

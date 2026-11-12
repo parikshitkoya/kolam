@@ -43,7 +43,7 @@ export const ResultCard = (p: ResultCardProps) => {
   };
 
   return (
-    <section className="ledge result" aria-live="polite">
+    <section className="ledge result">
       <div className="said">
         <h2>One unbroken line</h2>
         <p>

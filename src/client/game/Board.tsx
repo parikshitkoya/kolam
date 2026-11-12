@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
 import { traceLoops, type Board as BoardT, type Group, type Orbits } from '../../shared/kolam/core';
 import { POWDER } from '../../shared/kolam/colours';
+import { DASHES } from '../../shared/kolam/patterns';
 import { PAD, U, boardBox } from './geometry';
 
 export type BoardProps = {
@@ -16,6 +17,8 @@ export type BoardProps = {
   onTap(orbit: number): void;
   /** Pulse an orbit's rings (hint). A new `n` replays the pulse. */
   nudge?: { orbit: number; n: number } | null;
+  /** Give each loose loop a dash pattern as well as a colour. */
+  patterns?: boolean;
 };
 
 /** Row and dot numbers (1-based) for each cell, for gap labels. */
@@ -53,7 +56,7 @@ export const HandFilter = ({ id }: { id: string }) => (
   </filter>
 );
 
-export const Board = ({ B, O, group, woven, segColour, done, fresh, onTap, nudge }: BoardProps) => {
+export const Board = ({ B, O, group, woven, segColour, done, fresh, onTap, nudge, patterns }: BoardProps) => {
   const [hot, setHot] = useState<number | null>(null);
   const ringRefs = useRef<(SVGCircleElement | null)[]>([]);
   const prevWoven = useRef<Uint8Array | null>(null);
@@ -121,13 +124,17 @@ export const Board = ({ B, O, group, woven, segColour, done, fresh, onTap, nudge
       <g filter="url(#hand)">
         {traces.map((t, i) => {
           const c = segColour[t.segs[0] ?? 0] ?? 0;
+          const k = c >= 0 ? c : 0;
+          const dash = patterns && !solved ? DASHES[k] : undefined;
           return (
             <path
               key={i}
               className={solved && !animateFinish ? 'ln still' : 'ln'}
               d={t.path}
-              stroke={POWDER[c >= 0 ? c : 0]}
-              pathLength={1}
+              stroke={POWDER[k]}
+              // pathLength only for the draw-on; it would rescale dash patterns
+              {...(solved ? { pathLength: 1 } : {})}
+              {...(dash && dash !== 'none' ? { strokeDasharray: dash } : {})}
             />
           );
         })}

@@ -11,7 +11,7 @@ export type LedgeProps = {
 };
 
 export const Ledge = ({ loops, taps, par, saving, done, onHint, hintBusy }: LedgeProps) => (
-  <section className="ledge" aria-live="polite">
+  <section className="ledge">
     {done ? (
       <div className="result">
         <div>
