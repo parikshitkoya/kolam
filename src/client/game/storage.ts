@@ -27,3 +27,13 @@ export const saveLocal = (day: number, p: Progress): void => {
     // memory copy is enough for this session
   }
 };
+
+export const clearLocal = (day: number): void => {
+  const key = keyFor(day);
+  memory.delete(key);
+  try {
+    globalThis.localStorage?.removeItem(key);
+  } catch {
+    // nothing else to do
+  }
+};

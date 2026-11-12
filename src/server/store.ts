@@ -34,6 +34,8 @@ const K = {
   prog: (day: number) => `prog:${day}`,
   stats: (day: number) => `stats:${day}`,
   streak: 'streak',
+  sub: 'sub',
+  commented: (day: number) => `commented:${day}`,
 } as const;
 
 const parsePuzzle = (x: unknown): PuzzleRecord | null => {
@@ -91,6 +93,10 @@ export const getSticky = async (postId: string): Promise<string | null> =>
 
 export const setSticky = async (postId: string, commentId: string): Promise<void> => {
   await redis.hSet(K.sticky, { [postId]: commentId });
+};
+
+export const clearSticky = async (postId: string): Promise<void> => {
+  await redis.hDel(K.sticky, [postId]);
 };
 
 /** SET NX with expiry. True if this caller took the lock. */
@@ -160,4 +166,59 @@ export const getStreak = async (userId: string): Promise<Streak | null> =>
 
 export const setStreak = async (userId: string, s: Streak): Promise<void> => {
   await redis.hSet(K.streak, { [userId]: JSON.stringify(s) });
+};
+
+// --- social (M2) -----------------------------------------------------------------------------
+
+export const isSubscribed = async (userId: string): Promise<boolean> =>
+  (await redis.hGet(K.sub, userId)) === '1';
+
+export const setSubscribed = async (userId: string): Promise<void> => {
+  await redis.hSet(K.sub, { [userId]: '1' });
+};
+
+export const getCommented = async (day: number, userId: string): Promise<string | null> =>
+  (await redis.hGet(K.commented(day), userId)) ?? null;
+
+/** Claim the player's one score comment for the day. True if this call claimed it. */
+export const setCommentedNX = async (day: number, userId: string, commentId: string): Promise<boolean> =>
+  (await redis.hSetNX(K.commented(day), userId, commentId)) === 1;
+
+export const setCommented = async (day: number, userId: string, commentId: string): Promise<void> => {
+  await redis.hSet(K.commented(day), { [userId]: commentId });
+};
+
+const PENDING = 'pending:';
+const STALE_CLAIM_MS = 2 * 60 * 1000;
+
+/** True for a real comment id, false for an in-flight claim. */
+export const isPostedComment = (v: string | null): boolean => v !== null && !v.startsWith('pending');
+
+/**
+ * Claim the player's one score comment for the day before posting. A claim left `pending` by a
+ * request that died mid-post is reclaimed after STALE_CLAIM_MS, so it can't block the day.
+ */
+export const claimComment = async (
+  day: number,
+  userId: string,
+  nowMs: number
+): Promise<{ claimed: true } | { claimed: false; held: string }> => {
+  const key = K.commented(day);
+  if ((await redis.hSetNX(key, userId, `${PENDING}${nowMs}`)) === 1) return { claimed: true };
+  const tx = await redis.watch(key);
+  const cur = (await redis.hGet(key, userId)) ?? '';
+  const ts = cur.startsWith(PENDING) ? Number(cur.slice(PENDING.length)) : NaN;
+  const stale = cur === 'pending' || (Number.isFinite(ts) && nowMs - ts > STALE_CLAIM_MS);
+  if (!stale) {
+    await tx.unwatch();
+    return { claimed: false, held: cur };
+  }
+  await tx.multi();
+  await tx.hSet(key, { [userId]: `${PENDING}${nowMs}` });
+  const res = await tx.exec();
+  return Array.isArray(res) && res.length > 0 ? { claimed: true } : { claimed: false, held: cur };
+};
+
+export const clearCommented = async (day: number, userId: string): Promise<void> => {
+  await redis.hDel(K.commented(day), [userId]);
 };

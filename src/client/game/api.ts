@@ -40,10 +40,17 @@ export const parseStateResponse = (x: unknown): StateResponse | null => {
     loggedIn,
     progress,
     streak,
+    subscribed: x.subscribed === true,
+    commented: x.commented === true,
+    username: typeof x.username === 'string' ? x.username : null,
   };
   if (x.stats !== undefined) {
     const stats = parseStats(x.stats);
     if (stats) out.stats = stats;
+  }
+  if (x.result !== undefined) {
+    const result = parseResult(x.result);
+    if (result) out.result = result;
   }
   return out;
 };
@@ -117,4 +124,39 @@ export const sendTap = async (req: TapRequest): Promise<SendResult> => {
     if (typeof json.message === 'string') out.message = json.message;
   }
   return out;
+};
+
+const post = async (path: string, body: unknown): Promise<{ status: number; json: unknown }> => {
+  try {
+    const res = await fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    return { status: res.status, json: await readJson(res) };
+  } catch {
+    return { status: 0, json: undefined };
+  }
+};
+
+export type Simple = { ok: true } | { ok: false; status: number };
+
+export const postComment = async (message: string | null): Promise<Simple> => {
+  const r = await post('/api/comment', message ? { message } : {});
+  return r.status === 200 ? { ok: true } : { ok: false, status: r.status };
+};
+
+export const postSubscribe = async (): Promise<Simple> => {
+  const r = await post('/api/subscribe', {});
+  return r.status === 200 ? { ok: true } : { ok: false, status: r.status };
+};
+
+export const requestHint = async (index: number): Promise<
+  { ok: true; orbit: number; hints: number } | { ok: false; status: number }
+> => {
+  const r = await post('/api/hint', { index });
+  if (r.status === 200 && isRecord(r.json) && isInt(r.json.orbit) && isInt(r.json.hints)) {
+    return { ok: true, orbit: r.json.orbit, hints: r.json.hints };
+  }
+  return { ok: false, status: r.status === 200 ? 502 : r.status };
 };

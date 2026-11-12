@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from 'vitest';
-import { loadLocal, saveLocal } from './storage';
+import { clearLocal, loadLocal, saveLocal } from './storage';
 
 const memoryStorage = () => {
   const m = new Map<string, string>();
@@ -50,4 +50,23 @@ test('missing localStorage still round-trips through memory', () => {
   vi.stubGlobal('localStorage', undefined);
   saveLocal(8, { taps: [0], hints: 0, done: false });
   expect(loadLocal(8)).toEqual({ taps: [0], hints: 0, done: false });
+});
+
+test('clearLocal removes the entry, also when removeItem throws', () => {
+  const s = memoryStorage();
+  vi.stubGlobal('localStorage', s);
+  saveLocal(9, { taps: [1], hints: 0, done: true });
+  clearLocal(9);
+  expect(loadLocal(9)).toBeNull();
+  expect(s.raw.has('kolam:prog:9')).toBe(false);
+  vi.stubGlobal('localStorage', {
+    getItem: () => null,
+    setItem: () => undefined,
+    removeItem: () => {
+      throw new Error('SecurityError');
+    },
+  });
+  saveLocal(10, { taps: [2], hints: 0, done: false });
+  expect(() => clearLocal(10)).not.toThrow();
+  expect(loadLocal(10)).toBeNull();
 });

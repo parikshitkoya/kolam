@@ -28,6 +28,12 @@ export type StateResponse = {
   progress: Progress | null;
   streak: Streak | null;
   stats?: Stats;
+  /** Present when progress.done. */
+  result?: Result;
+  subscribed: boolean;
+  commented: boolean;
+  /** Only for the "posted as" line. */
+  username: string | null;
 };
 
 export type TapRequest = { orbit: number; index: number };
