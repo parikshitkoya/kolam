@@ -92,6 +92,15 @@ const topUp = async (today: number, budgetMs: number): Promise<number[]> => {
   return generated;
 };
 
+/** The app's pinned results comment for a post: the stored one, or a new one created and stored. */
+export const ensureSticky = async (postId: string, poster: Poster): Promise<string> => {
+  const stored = await getSticky(postId);
+  if (stored) return stored;
+  const commentId = await poster.submitSticky(postId);
+  await setSticky(postId, commentId);
+  return commentId;
+};
+
 export const ensureToday = async (deps: {
   now: () => number;
   poster: Poster;
@@ -130,13 +139,10 @@ export const ensureToday = async (deps: {
     if ((await getDayForPost(postId)) !== today || status === 'posted') {
       await setPostMapping(today, postId);
     }
-    if (!(await getSticky(postId))) {
-      try {
-        const commentId = await deps.poster.submitSticky(postId);
-        await setSticky(postId, commentId);
-      } catch (e) {
-        console.error(`ensureToday: results comment failed for ${postId}`, e);
-      }
+    try {
+      await ensureSticky(postId, deps.poster);
+    } catch (e) {
+      console.error(`ensureToday: results comment failed for ${postId}`, e);
     }
   } catch (e) {
     console.error(`ensureToday: posting day ${today} failed`, e);

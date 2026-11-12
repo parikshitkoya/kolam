@@ -5,6 +5,8 @@ import './preview.css';
 
 import { StrictMode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { ResultCard } from '../../src/client/game/ResultCard';
+import { usePatterns } from '../../src/client/game/prefs';
 import { Screen } from '../../src/client/game/Screen';
 import { dateLabel, weekdayOf, WEEKDAY_NAMES } from '../../src/shared/day';
 import { assignColours } from '../../src/shared/kolam/colours';
@@ -70,6 +72,7 @@ const usePuzzles = () => {
 
 const App = () => {
   const { dailies, error, want } = usePuzzles();
+  const [patternsOn, togglePatterns] = usePatterns();
   const [day, setDay] = useState(initialDay);
   const [play, setPlay] = useState<Play>(() => ({ day, taps: loadTaps(day), segColour: null }));
   const [showTools, setShowTools] = useState(true);
@@ -252,6 +255,28 @@ const App = () => {
         done={view.done}
         saving={false}
         onTap={tap}
+        patterns={{ on: patternsOn, toggle: togglePatterns }}
+        card={
+          <ResultCard
+            day={day}
+            result={{
+              trail: view.trail,
+              taps: play.taps.length,
+              par: entry.daily.par,
+              hints: 0,
+              streak: null,
+              stats: { players: 0, solved: 0, over: [0, 0, 0, 0, 0, 0] },
+            }}
+            loggedIn={false}
+            username={null}
+            subredditName="kolamdaily_dev"
+            subscribed={false}
+            commented={false}
+            onComment={async () => true}
+            onSubscribe={async () => true}
+            onLogin={() => {}}
+          />
+        }
       />
       {tools}
     </>
