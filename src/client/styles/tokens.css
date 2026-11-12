@@ -1,0 +1,107 @@
+/* One visual world: a red-oxide threshold floor at dawn, rice flour for the line,
+   festival powders for loose loops (build spec §7.4). Fonts are self-hosted. */
+@import '@fontsource-variable/anek-latin/wdth.css';
+@import '@fontsource/mukta/400.css';
+@import '@fontsource/mukta/600.css';
+@import '@fontsource-variable/anek-tamil';
+
+:root {
+  --floor: #56241d;
+  --floor-deep: #34140f;
+  --rice: #f7f0e3;
+  --rice-soft: rgba(247, 240, 227, 0.66);
+  --rice-faint: rgba(247, 240, 227, 0.2);
+  --turmeric: #f2c14e;
+  --font-display: 'Anek Latin Variable', 'Avenir Next Condensed', 'Segoe UI', system-ui, sans-serif;
+  --font-body: 'Mukta', 'Segoe UI', system-ui, sans-serif;
+  --font-tamil: 'Anek Tamil Variable', 'Noto Sans Tamil', 'Latha', sans-serif;
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background-color: var(--floor-deep);
+  background-image: radial-gradient(120% 80% at 50% 38%, var(--floor) 0%, var(--floor-deep) 78%);
+  color: var(--rice);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.4;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.wordmark {
+  margin: 0;
+  font-family: var(--font-display);
+  font-stretch: 125%;
+  font-variation-settings: 'wdth' 125;
+  font-weight: 750;
+  font-size: 26px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+.ta {
+  font-family: var(--font-tamil);
+  font-size: 15px;
+  color: var(--rice-soft);
+}
+
+.dot {
+  fill: var(--rice);
+}
+
+.ln {
+  fill: none;
+  stroke-width: 7.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.guide {
+  stroke: var(--rice-faint);
+  stroke-width: 2;
+  stroke-dasharray: 3 12;
+  stroke-linecap: round;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 1px solid var(--rice-soft);
+  border-radius: 999px;
+  padding: 7px 14px;
+  cursor: pointer;
+  font-family: var(--font-display);
+  letter-spacing: 0.04em;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+button:hover {
+  border-color: var(--rice);
+}
+
+button:focus-visible {
+  outline: 2px solid var(--turmeric);
+  outline-offset: 2px;
+}
+
+button.fill {
+  background: var(--turmeric);
+  border-color: var(--turmeric);
+  color: #3a1711;
+  font-weight: 650;
+}

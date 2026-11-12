@@ -1,1 +1,297 @@
 @import 'tailwindcss';
+@import './styles/tokens.css';
+
+/* Game screen (expanded). One column that fills the viewport, no scrolling. */
+.app {
+  height: 100dvh;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 14px 16px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.top {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.mark {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.day {
+  text-align: right;
+  font-family: var(--font-display);
+  font-size: 12.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--rice-soft);
+  line-height: 1.25;
+}
+
+.day b {
+  display: block;
+  color: var(--rice);
+  font-weight: 650;
+}
+
+.rule {
+  margin: 0;
+  color: var(--rice-soft);
+  max-width: 44ch;
+  font-size: 14.5px;
+}
+
+.rule strong {
+  color: var(--rice);
+  font-weight: 600;
+}
+
+.floor {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.board {
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: manipulation;
+}
+
+.tick {
+  fill: var(--rice);
+  opacity: 0.3;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+
+.tick.hot {
+  opacity: 1;
+}
+
+.ring {
+  fill: none;
+  stroke: var(--rice);
+  stroke-width: 2.5;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ring.hot {
+  opacity: 0.75;
+}
+
+.ring,
+.tick {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.fresh .tick {
+  animation: breathe 1.8s ease-in-out infinite;
+}
+
+.hit {
+  fill: transparent;
+  cursor: pointer;
+  outline: none;
+}
+
+.hit:focus-visible + .ring {
+  opacity: 1;
+  stroke: var(--turmeric);
+  stroke-width: 3.5;
+}
+
+.solved .hit {
+  pointer-events: none;
+}
+
+.solved .tick {
+  opacity: 0;
+}
+
+.solved .ln {
+  stroke: var(--rice);
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: draw 2.4s cubic-bezier(0.5, 0.1, 0.2, 1) forwards;
+}
+
+.solved .ln.still {
+  animation: none;
+  stroke-dasharray: none;
+  stroke-dashoffset: 0;
+}
+
+@keyframes draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+.ledge {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-top: 1px solid var(--rice-faint);
+  padding-top: 10px;
+}
+
+.score {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-height: 64px;
+}
+
+.count {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.big {
+  font-family: var(--font-display);
+  font-stretch: 75%;
+  font-variation-settings: 'wdth' 75;
+  font-weight: 600;
+  font-size: 60px;
+  line-height: 0.9;
+  font-variant-numeric: tabular-nums;
+}
+
+.unit {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 12.5px;
+  color: var(--rice-soft);
+  line-height: 1.3;
+}
+
+.unit b {
+  display: block;
+  color: var(--rice);
+  font-weight: 600;
+}
+
+.meta {
+  display: flex;
+  gap: 16px;
+  margin: 0 0 0 auto;
+}
+
+.meta div {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.meta dt {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 11.5px;
+  color: var(--rice-soft);
+}
+
+.meta dd {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 24px;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.saving {
+  font-size: 12.5px;
+  color: var(--rice-soft);
+  min-width: 4.5em;
+}
+
+.result {
+  display: flex;
+  align-items: center;
+  min-height: 64px;
+}
+
+.result h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-stretch: 110%;
+  font-variation-settings: 'wdth' 110;
+  font-weight: 700;
+  font-size: 21px;
+  line-height: 1.1;
+}
+
+.result p {
+  margin: 2px 0 0;
+  color: var(--rice-soft);
+  font-size: 14.5px;
+}
+
+.strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13.5px;
+  color: var(--rice-soft);
+}
+
+.calm {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: var(--rice-soft);
+}
+
+@media (max-height: 620px) {
+  .rule {
+    font-size: 13.5px;
+  }
+  .big {
+    font-size: 46px;
+  }
+  .score,
+  .result {
+    min-height: 52px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fresh .tick {
+    animation: none;
+  }
+  .solved .ln {
+    animation: none;
+    stroke-dasharray: none;
+    stroke-dashoffset: 0;
+  }
+}
