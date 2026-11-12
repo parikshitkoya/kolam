@@ -125,3 +125,38 @@ export const sendTap = async (req: TapRequest): Promise<SendResult> => {
   }
   return out;
 };
+
+const post = async (path: string, body: unknown): Promise<{ status: number; json: unknown }> => {
+  try {
+    const res = await fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    return { status: res.status, json: await readJson(res) };
+  } catch {
+    return { status: 0, json: undefined };
+  }
+};
+
+export type Simple = { ok: true } | { ok: false; status: number };
+
+export const postComment = async (message: string | null): Promise<Simple> => {
+  const r = await post('/api/comment', message ? { message } : {});
+  return r.status === 200 ? { ok: true } : { ok: false, status: r.status };
+};
+
+export const postSubscribe = async (): Promise<Simple> => {
+  const r = await post('/api/subscribe', {});
+  return r.status === 200 ? { ok: true } : { ok: false, status: r.status };
+};
+
+export const requestHint = async (): Promise<
+  { ok: true; orbit: number; hints: number } | { ok: false; status: number }
+> => {
+  const r = await post('/api/hint', {});
+  if (r.status === 200 && isRecord(r.json) && isInt(r.json.orbit) && isInt(r.json.hints)) {
+    return { ok: true, orbit: r.json.orbit, hints: r.json.hints };
+  }
+  return { ok: false, status: r.status === 200 ? 502 : r.status };
+};

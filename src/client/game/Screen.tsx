@@ -44,6 +44,11 @@ export type ScreenProps = {
   onTap(orbit: number): void;
   /** Optional strip under the rule (offline notice, preview tools). */
   notice?: ReactNode;
+  /** Replaces the ledge once done (the result card). */
+  card?: ReactNode;
+  onHint?: () => void;
+  hintBusy?: boolean;
+  nudge?: { orbit: number; n: number } | null;
 };
 
 export const Screen = (p: ScreenProps) => (
@@ -70,8 +75,21 @@ export const Screen = (p: ScreenProps) => (
         done={p.done}
         fresh={p.taps === 0}
         onTap={p.onTap}
+        nudge={p.nudge ?? null}
       />
     </div>
-    <Ledge loops={p.loops} taps={p.taps} par={p.par} saving={p.saving} done={p.done} />
+    {p.done && p.card ? (
+      p.card
+    ) : (
+      <Ledge
+        loops={p.loops}
+        taps={p.taps}
+        par={p.par}
+        saving={p.saving}
+        done={p.done}
+        {...(p.onHint ? { onHint: p.onHint } : {})}
+        hintBusy={p.hintBusy ?? false}
+      />
+    )}
   </main>
 );

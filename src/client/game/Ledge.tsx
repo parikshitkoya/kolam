@@ -1,7 +1,16 @@
 // Score ledge: loop count, taps, par, saving mark. M1 completion state (M2 replaces it with the result card).
-export type LedgeProps = { loops: number; taps: number; par: number; saving: boolean; done: boolean };
+export type LedgeProps = {
+  loops: number;
+  taps: number;
+  par: number;
+  saving: boolean;
+  done: boolean;
+  /** Shown only when given (logged-in players). */
+  onHint?: () => void;
+  hintBusy?: boolean;
+};
 
-export const Ledge = ({ loops, taps, par, saving, done }: LedgeProps) => (
+export const Ledge = ({ loops, taps, par, saving, done, onHint, hintBusy }: LedgeProps) => (
   <section className="ledge" aria-live="polite">
     {done ? (
       <div className="result">
@@ -33,6 +42,11 @@ export const Ledge = ({ loops, taps, par, saving, done }: LedgeProps) => (
         <span className="saving" aria-hidden={!saving}>
           {saving ? 'saving…' : ''}
         </span>
+        {onHint && (
+          <button type="button" onClick={onHint} disabled={hintBusy}>
+            Hint
+          </button>
+        )}
       </div>
     )}
   </section>

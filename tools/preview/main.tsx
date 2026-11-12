@@ -5,6 +5,7 @@ import './preview.css';
 
 import { StrictMode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { ResultCard } from '../../src/client/game/ResultCard';
 import { Screen } from '../../src/client/game/Screen';
 import { dateLabel, weekdayOf, WEEKDAY_NAMES } from '../../src/shared/day';
 import { assignColours } from '../../src/shared/kolam/colours';
@@ -252,6 +253,27 @@ const App = () => {
         done={view.done}
         saving={false}
         onTap={tap}
+        card={
+          <ResultCard
+            day={day}
+            result={{
+              trail: view.trail,
+              taps: play.taps.length,
+              par: entry.daily.par,
+              hints: 0,
+              streak: null,
+              stats: { players: 0, solved: 0, over: [0, 0, 0, 0, 0, 0] },
+            }}
+            loggedIn={false}
+            username={null}
+            subredditName="kolamdaily_dev"
+            subscribed={false}
+            commented={false}
+            onComment={async () => true}
+            onSubscribe={async () => true}
+            onLogin={() => {}}
+          />
+        }
       />
       {tools}
     </>
