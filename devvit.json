@@ -6,7 +6,8 @@
     "entrypoints": {
       "default": {
         "inline": true,
-        "entry": "splash.html"
+        "entry": "splash.html",
+        "height": "tall"
       },
       "game": {
         "entry": "game.html"
@@ -16,6 +17,38 @@
   "server": {
     "dir": "dist/server",
     "entry": "index.cjs"
+  },
+  "permissions": {
+    "redis": true,
+    "reddit": {
+      "enable": true,
+      "asUser": [
+        "SUBMIT_COMMENT",
+        "SUBSCRIBE_TO_SUBREDDIT"
+      ]
+    }
+  },
+  "scheduler": {
+    "tasks": {
+      "daily-post": {
+        "endpoint": "/internal/scheduler/daily-post",
+        "cron": "0 0 * * *"
+      }
+    }
+  },
+  "triggers": {
+    "onAppInstall": "/internal/triggers/on-app-install"
+  },
+  "menu": {
+    "items": [
+      {
+        "label": "Post today's Kolam",
+        "description": "Create today's puzzle post if it is missing",
+        "location": "subreddit",
+        "forUserType": "moderator",
+        "endpoint": "/internal/menu/post-today"
+      }
+    ]
   },
   "scripts": {
     "dev": "vite build --watch",

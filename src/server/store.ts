@@ -97,6 +97,10 @@ export const tryLock = async (key: string, ttlSec: number): Promise<boolean> =>
   (await redis.set(key, '1', { nx: true, expiration: new Date(Date.now() + ttlSec * 1000) })) ===
   'OK';
 
+export const releaseLock = async (key: string): Promise<void> => {
+  await redis.del(key);
+};
+
 // --- progress ------------------------------------------------------------------------------
 
 export const getProgress = async (day: number, userId: string): Promise<Progress | null> =>
