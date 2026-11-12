@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
 import { traceLoops, type Board as BoardT, type Group, type Orbits } from '../../shared/kolam/core';
 import { POWDER } from '../../shared/kolam/colours';
+import { DASHES } from '../../shared/kolam/patterns';
 import { PAD, U, boardBox } from './geometry';
 
 export type BoardProps = {
@@ -14,6 +15,10 @@ export type BoardProps = {
   done: boolean;
   fresh: boolean;
   onTap(orbit: number): void;
+  /** Pulse an orbit's rings (hint). A new `n` replays the pulse. */
+  nudge?: { orbit: number; n: number } | null;
+  /** Give each loose loop a dash pattern as well as a colour. */
+  patterns?: boolean;
 };
 
 /** Row and dot numbers (1-based) for each cell, for gap labels. */
@@ -51,7 +56,7 @@ export const HandFilter = ({ id }: { id: string }) => (
   </filter>
 );
 
-export const Board = ({ B, O, group, woven, segColour, done, fresh, onTap }: BoardProps) => {
+export const Board = ({ B, O, group, woven, segColour, done, fresh, onTap, nudge, patterns }: BoardProps) => {
   const [hot, setHot] = useState<number | null>(null);
   const ringRefs = useRef<(SVGCircleElement | null)[]>([]);
   const prevWoven = useRef<Uint8Array | null>(null);
@@ -79,6 +84,24 @@ export const Board = ({ B, O, group, woven, segColour, done, fresh, onTap }: Boa
     }
   }, [woven]);
 
+  // Hint: pulse every ring of the hinted orbit (prototype pulse(o, 'nudge')).
+  useEffect(() => {
+    if (!nudge) return;
+    const reduced = prefersReducedMotion();
+    for (const gi of O.orbs[nudge.orbit] ?? []) {
+      ringRefs.current[gi]?.animate?.(
+        reduced
+          ? [{ opacity: 0.2 }, { opacity: 1 }, { opacity: 0.2 }]
+          : [
+              { opacity: 0.15, transform: 'scale(.8)' },
+              { opacity: 1, transform: 'scale(1.2)' },
+              { opacity: 0.15, transform: 'scale(.8)' },
+            ],
+        { duration: 1000, easing: 'ease-in-out', iterations: 3 }
+      );
+    }
+  }, [nudge, O]);
+
   const solved = done && traces.length === 1;
   const svgClass = ['board', solved ? 'solved' : '', fresh && !solved ? 'fresh' : ''].join(' ').trim();
 
@@ -101,13 +124,17 @@ export const Board = ({ B, O, group, woven, segColour, done, fresh, onTap }: Boa
       <g filter="url(#hand)">
         {traces.map((t, i) => {
           const c = segColour[t.segs[0] ?? 0] ?? 0;
+          const k = c >= 0 ? c : 0;
+          const dash = patterns && !solved ? DASHES[k] : undefined;
           return (
             <path
               key={i}
               className={solved && !animateFinish ? 'ln still' : 'ln'}
               d={t.path}
-              stroke={POWDER[c >= 0 ? c : 0]}
-              pathLength={1}
+              stroke={POWDER[k]}
+              // pathLength only for the draw-on; it would rescale dash patterns
+              {...(solved ? { pathLength: 1 } : {})}
+              {...(dash && dash !== 'none' ? { strokeDasharray: dash } : {})}
             />
           );
         })}

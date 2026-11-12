@@ -1,10 +1,23 @@
-import { expect, describe } from 'vitest';
+import { expect, describe, vi } from 'vitest';
+import { reddit } from '@devvit/web/server';
 import { createDevvitTest } from '@devvit/test/server/vitest';
 import { parseStart } from '../../shared/kolam/core';
+import { replay } from '../../shared/kolam/replay';
 import { recipeBoard } from '../kolam/daily';
 import { solve } from '../kolam/solver';
-import { getProgress, getStats, getStreak, putPuzzleNX, setPostMapping, setStreak } from '../store';
-import { applyTap, getState, nextStreak, overBucket } from './play';
+import {
+  getCommented,
+  getProgress,
+  getStats,
+  getStreak,
+  isSubscribed,
+  putPuzzleNX,
+  setCommentedNX,
+  setPostMapping,
+  setStreak,
+  setSubscribed,
+} from '../store';
+import { applyTap, getState, hint, nextStreak, overBucket } from './play';
 
 const test = createDevvitTest();
 
@@ -94,6 +107,7 @@ test('getState reports puzzle and progress; stats only when done', async () => {
     status: 'ok', day: 1, date: '2026-11-23',
     puzzle: { rows: [3, 3, 3], group: 'mirror', start: '000101011000' },
     par: 2, loggedIn: false, progress: null, streak: null,
+    subscribed: false, commented: false, username: null,
   });
   await tap('t2_a', SOL[0] ?? -1, 0);
   const s1 = await getState(POST, 't2_a', NOW);
@@ -137,4 +151,121 @@ test('nextStreak and overBucket', () => {
   expect(overBucket(4, 2)).toBe(2);
   expect(overBucket(30, 2)).toBe(5);
   expect(overBucket(1, 2)).toBe(0);
+});
+
+test('getState carries the result once solved, with the replayed trail', async () => {
+  await seed();
+  const before = await getState(POST, 't2_a', NOW);
+  expect(before?.result).toBeUndefined();
+  expect(before?.commented).toBe(false);
+  expect(before?.subscribed).toBe(false);
+  await tap('t2_a', SOL[0] ?? -1, 0);
+  await tap('t2_a', SOL[1] ?? -1, 1);
+  const s = await getState(POST, 't2_a', NOW);
+  const expected = replay(B, O, parseStart('000101011000'), SOL).trail;
+  expect(s?.result?.trail).toEqual(expected);
+  expect(s?.result?.taps).toBe(2);
+  expect(s?.result?.par).toBe(2);
+  expect(s?.result?.streak).toEqual({ current: 1, best: 1, lastDay: 1 });
+  expect(s?.result?.stats.solved).toBe(1);
+  expect(s?.commented).toBe(false);
+  expect(s?.username).toBe('testuser');
+  const anon = await getState(POST, undefined, NOW);
+  expect(anon?.username).toBeNull();
+});
+
+test('store: subscribed and commented flags', async () => {
+  expect(await isSubscribed('t2_a')).toBe(false);
+  await setSubscribed('t2_a');
+  expect(await isSubscribed('t2_a')).toBe(true);
+  expect(await getCommented(1, 't2_a')).toBeNull();
+  expect(await setCommentedNX(1, 't2_a', 'pending')).toBe(true);
+  expect(await setCommentedNX(1, 't2_a', 'x')).toBe(false);
+  expect(await getCommented(1, 't2_a')).toBe('pending');
+});
+
+describe('hint', () => {
+  const start = parseStart('000101011000');
+  const solveAfter = (taps: number[]) => solve(B, O, replay(B, O, start, taps).woven, O.orbs.length);
+
+  test('from the start it is the first move of the shortest solution and counts', async () => {
+    await seed();
+    const h = await hint(POST, 't2_a', NOW);
+    expect(h).toEqual({ kind: 'ok', orbit: SOL[0], hints: 1 });
+    expect((await getProgress(1, 't2_a'))?.hints).toBe(1);
+  });
+
+  test('after two wrong taps the hint starts a shortest solution', async () => {
+    await seed();
+    const wrong = [0, 1, 2, 3, 4, 5, 6].filter((o) => !SOL.includes(o)).slice(0, 2);
+    for (let i = 0; i < wrong.length; i++) await tap('t2_a', wrong[i] ?? 0, i);
+    const before = solveAfter(wrong)?.par ?? -1;
+    const h = await hint(POST, 't2_a', NOW);
+    if (h.kind !== 'ok') throw new Error('expected ok, got ' + h.kind);
+    expect(solveAfter([...wrong, h.orbit])?.par).toBe(before - 1);
+  });
+
+  test('a hint before the first tap still counts the player once', async () => {
+    await seed();
+    await hint(POST, 't2_a', NOW);
+    await tap('t2_a', OTHER, 0);
+    await tap('t2_a', OTHER, 1);
+    expect((await getStats(1)).players).toBe(1);
+  });
+
+  test('done gives done; no mapping gives notfound', async () => {
+    await seed();
+    for (let i = 0; i < SOL.length; i++) await tap('t2_a', SOL[i] ?? -1, i);
+    expect(await hint(POST, 't2_a', NOW)).toEqual({ kind: 'done' });
+    expect(await hint('t3_nope', 't2_a', NOW)).toEqual({ kind: 'notfound' });
+  });
+
+  test.for([['oct7', 'rot4'], ['plus7', 'mirror2']] as const)(
+    'answers on %s:%s from a messy state in under 8 s',
+    async ([layout, group]) => {
+      const { B: BB, O: OO } = recipeBoard(`${layout}:${group}`);
+      // a par-5 start from a seeded search, then 6 seeded random taps
+      let s = 12345;
+      const R = () => ((s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296);
+      const randomStart = () => {
+        const v = new Uint8Array(BB.gaps.length);
+        for (const orb of OO.orbs) if (R() < 0.5) for (const g of orb) v[g] = 1;
+        return v;
+      };
+      let w = randomStart();
+      while (solve(BB, OO, w, 5)?.par !== 5) w = randomStart();
+      const post = `t3_${layout}`;
+      await putPuzzleNX({ day: 7, date: '2026-11-29', layout, group, start: Array.from(w).join(''), par: 5, sig: 'x' + layout });
+      await setPostMapping(7, post);
+      let idx = 0;
+      for (let i = 0; i < 6; i++) {
+        const r = await applyTap(post, 't2_a', { orbit: Math.floor(R() * OO.orbs.length), index: idx }, NOW);
+        if (r.kind === 'ok') idx++;
+        if (r.kind === 'ok' && r.body.done) break;
+      }
+      const t0 = performance.now();
+      const h = await hint(post, 't2_a', NOW);
+      const ms = performance.now() - t0;
+      console.log(`hint ${layout}:${group} took ${ms.toFixed(0)} ms`);
+      expect(['ok', 'done']).toContain(h.kind);
+      expect(ms).toBeLessThan(8000);
+    }
+  );
+});
+
+test('hint for a stale tap index is refused so it never answers for an old state', async () => {
+  await seed();
+  await tap('t2_a', OTHER, 0);
+  expect(await hint(POST, 't2_a', NOW, 0)).toEqual({ kind: 'stale' });
+  expect((await hint(POST, 't2_a', NOW, 1)).kind).toBe('ok');
+  expect((await getProgress(1, 't2_a'))?.hints).toBe(1);
+});
+
+test('a failed username lookup does not fail the state', async () => {
+  await seed();
+  const spy = vi.spyOn(reddit, 'getCurrentUsername').mockRejectedValue(new Error('reddit down'));
+  const s = await getState(POST, 't2_a', NOW);
+  spy.mockRestore();
+  expect(s?.status).toBe('ok');
+  expect(s?.username).toBeNull();
 });

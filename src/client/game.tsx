@@ -2,11 +2,15 @@ import './index.css';
 
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { ResultCard } from './game/ResultCard';
 import { NameStrip, Screen } from './game/Screen';
 import { useGame } from './game/useGame';
+import { usePatterns } from './game/prefs';
 
 export const App = () => {
-  const { phase, game, dateLabel, saving, tap, retry } = useGame();
+  const g = useGame();
+  const [patternsOn, togglePatterns] = usePatterns();
+  const { phase, game, dateLabel, saving, tap, retry } = g;
 
   if (phase === 'notKolam') {
     return (
@@ -40,6 +44,27 @@ export const App = () => {
       done={game.done}
       saving={saving}
       onTap={tap}
+      {...(g.loggedIn ? { onHint: g.hint } : {})}
+      hintBusy={g.hintBusy || g.saving}
+      nudge={g.nudge}
+      patterns={{ on: patternsOn, toggle: togglePatterns }}
+      card={
+        g.result && (
+          <ResultCard
+            day={game.day}
+            result={g.result}
+            loggedIn={g.loggedIn}
+            syncing={g.account === 'syncing'}
+            username={g.username}
+            subredditName={g.subredditName}
+            subscribed={g.subscribed}
+            commented={g.commented}
+            onComment={g.comment}
+            onSubscribe={g.subscribe}
+            onLogin={g.login}
+          />
+        )
+      }
       notice={
         phase === 'offline' && (
           <div className="strip" role="status">
