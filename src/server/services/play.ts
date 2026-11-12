@@ -186,7 +186,7 @@ export type HintOutcome =
 
 const HINT_BUDGET_MS = 8000;
 
-/** One orbit from a shortest solution from the player's current state (design ง3.5). */
+/** One orbit from a shortest solution from the player's current state (design ยง3.5). */
 export const hint = async (postId: string, userId: string, _now: number): Promise<HintOutcome> => {
   const p = await puzzleForPost(postId);
   if (!p) return { kind: 'notfound' };
