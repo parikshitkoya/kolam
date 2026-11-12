@@ -1,0 +1,24 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "../dist/types/preview",
+    "tsBuildInfoFile": "../dist/types/preview/tsconfig.tsbuildinfo",
+    "types": [
+      "node"
+    ],
+    "rootDir": ".."
+  },
+  "include": [
+    "../tools/preview/**/*",
+    "../src/client/global.ts",
+    "../src/client/game/Screen.tsx",
+    "../src/client/game/Board.tsx",
+    "../src/client/game/Ledge.tsx",
+    "../src/client/game/geometry.ts",
+    "../src/shared/**/*",
+    "../src/server/kolam/**/*"
+  ],
+  "exclude": [
+    "../**/*.test.ts"
+  ]
+}

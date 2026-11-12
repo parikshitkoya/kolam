@@ -28,6 +28,7 @@ Logged-out players' progress stays in their browser only. No other personal data
 - `npm test`: unit and service tests (Vitest, `@devvit/test`)
 - `npm run test:types`, `npm run lint`, `npm run build`
 - `npm run dev`: playtest on Reddit
+- `npm run preview`: local preview of the game screen with no Reddit. Plays the real puzzle for any day (the same generator and day order as production), with Prev/Next, jump to day, Reset and Auto-solve. Keys: `[` `]` change day, `h` hides the panel. Progress is kept in that browser only. Dev-only; it never ships in the app.
 - `npm run deploy`: type-check, lint, upload. Do not run `npm run launch`.
 
 ## Status (M1)

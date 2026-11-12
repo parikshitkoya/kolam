@@ -11,6 +11,7 @@
     "launch": "npm run deploy && devvit publish",
     "lint": "eslint \"src/**/*.{ts,tsx}\"",
     "login": "devvit login",
+    "preview": "vite --config tools/preview/vite.config.ts",
     "prettier": "prettier --write .",
     "test:types": "tsc --build",
     "test": "vitest run"

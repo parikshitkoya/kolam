@@ -1,0 +1,57 @@
+/* Floating dev panel. It overlays the game so the game layout is exactly what players get. */
+.tools {
+  position: fixed;
+  right: 8px;
+  bottom: 8px;
+  z-index: 10;
+  max-width: min(360px, calc(100vw - 16px));
+  padding: 8px 10px;
+  border: 1px solid var(--rice-faint);
+  border-radius: 10px;
+  background: rgba(20, 8, 6, 0.88);
+  color: var(--rice);
+  font: 12.5px/1.35 var(--font-body);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tools .row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.tools button {
+  padding: 3px 10px;
+  font-size: 12.5px;
+}
+
+.tools input {
+  width: 4.5em;
+  background: transparent;
+  color: inherit;
+  border: 1px solid var(--rice-soft);
+  border-radius: 6px;
+  padding: 2px 6px;
+  font: inherit;
+}
+
+.tools .info {
+  color: var(--rice-soft);
+}
+
+.tools .warn {
+  color: var(--turmeric);
+}
+
+.tools-tab {
+  position: fixed;
+  right: 8px;
+  bottom: 8px;
+  z-index: 10;
+  padding: 3px 10px;
+  font-size: 12px;
+  background: rgba(20, 8, 6, 0.88);
+}
