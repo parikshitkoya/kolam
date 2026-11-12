@@ -4,6 +4,10 @@ A daily puzzle for Reddit. A kolam is a line pattern drawn around a grid of dots
 
 Built with Devvit Web (React, Hono, TypeScript) for Reddit's Daily Games Hackathon 2026.
 
+<p align="center">
+  <img src="media/kolam-demo.gif" alt="Playing Kolam No. 19: four taps merge nine coloured loops into one unbroken white line, then the result card shows 'Perfect. 4 taps, right on par.'" width="320">
+</p>
+
 ## How it works
 
 - One puzzle per UTC day, the same for everyone. Kolam No. 1 is Monday 23 November 2026.
