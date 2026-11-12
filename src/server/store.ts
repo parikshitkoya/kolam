@@ -81,8 +81,9 @@ export const getDayForPost = async (postId: string): Promise<number | null> =>
   toInt(await redis.hGet(K.postDay, postId));
 
 export const setPostMapping = async (day: number, postId: string): Promise<void> => {
-  await redis.hSet(K.dayPost, { [String(day)]: postId });
+  // post:day first: a crash in between leaves a post that still plays, and day:post is retried.
   await redis.hSet(K.postDay, { [postId]: String(day) });
+  await redis.hSet(K.dayPost, { [String(day)]: postId });
 };
 
 export const getSticky = async (postId: string): Promise<string | null> =>

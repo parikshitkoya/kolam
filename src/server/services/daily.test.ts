@@ -2,7 +2,8 @@ import { expect } from 'vitest';
 import { createDevvitTest } from '@devvit/test/server/vitest';
 import { redis } from '@devvit/web/server';
 import type { PostData } from '../../shared/api';
-import { getAhead, getDayForPost, getPostForDay, getPuzzle, getSticky, loadSigs, type PuzzleRecord } from '../store';
+import { getAhead, getDayForPost, getPostForDay, getPuzzle, getSticky, loadSigs, putPuzzleNX, type PuzzleRecord } from '../store';
+import { toastFor } from '../routes/menu';
 import { ensureToday, type Poster } from './daily';
 
 const test = createDevvitTest();
@@ -37,7 +38,7 @@ const at = (y: number, m: number, d: number, h = 0) => () => Date.UTC(y, m, d, h
 test('first run on 23 Nov posts day 1 and generates days 1 and 2; second run posts nothing', async () => {
   const poster = fakePoster();
   const r1 = await ensureToday({ now: at(2026, 10, 23, 1), poster });
-  expect(r1).toEqual({ day: 1, posted: true, generated: [1, 2] });
+  expect(r1).toEqual({ day: 1, posted: true, status: 'posted', generated: [1, 2] });
   expect(poster.posts.length).toBe(1);
   const post = poster.posts[0];
   expect(post?.data).toEqual({ v: 1, day: 1, rows: [3, 3, 3], group: 'mirror', start: '000101011000', par: 2 });
@@ -115,7 +116,49 @@ test('a failed results comment is retried on the next run without reposting', as
 test('fresh install mid-run does not backfill earlier days', async () => {
   const poster = fakePoster();
   const r = await ensureToday({ now: at(2026, 11, 2), poster }); // day 10
-  expect(r).toEqual({ day: 10, posted: true, generated: [10, 11] });
+  expect(r).toEqual({ day: 10, posted: true, status: 'posted', generated: [10, 11] });
   expect(await getPuzzle(9)).toBeNull();
   expect(await redis.get('puzzle:ahead')).toBe('11');
+});
+
+test('a failed post reports failed, and the menu toast says so', async () => {
+  const poster = fakePoster();
+  poster.submitPost = async () => {
+    throw new Error('reddit down');
+  };
+  const r = await ensureToday({ now: at(2026, 10, 23, 1), poster });
+  expect(r.status).toBe('failed');
+  expect(r.posted).toBe(false);
+  expect(toastFor(r)).toMatch(/^Couldn't post No\. 1/);
+  expect(await getPostForDay(1)).toBeNull();
+});
+
+test('status: posted, then exists; a held lock reports busy', async () => {
+  const poster = fakePoster();
+  expect((await ensureToday({ now: at(2026, 10, 23, 1), poster })).status).toBe('posted');
+  const again = await ensureToday({ now: at(2026, 10, 23, 1), poster });
+  expect(again.status).toBe('exists');
+  expect(toastFor(again)).toMatch(/^Already posted No\. 1/);
+  await redis.set('lock:post:2', '1');
+  const busy = await ensureToday({ now: at(2026, 10, 24, 1), poster });
+  expect(busy.status).toBe('busy');
+  expect(toastFor(busy)).toMatch(/try again/);
+});
+
+test('a half-written post mapping is repaired', async () => {
+  const poster = fakePoster();
+  await ensureToday({ now: at(2026, 10, 23, 1), poster });
+  await redis.hDel('post:day', ['t3_1']); // crash between the two mapping writes
+  expect(await getDayForPost('t3_1')).toBeNull();
+  await ensureToday({ now: at(2026, 10, 23, 2), poster });
+  expect(await getDayForPost('t3_1')).toBe(1);
+  expect(poster.posts.length).toBe(1);
+});
+
+test('a puzzle stored without its signature gets the signature registered', async () => {
+  const poster = fakePoster();
+  // a run that died after putPuzzleNX and before addSig
+  await putPuzzleNX({ day: 1, date: '2026-11-23', layout: 'sq3', group: 'mirror', start: '000101011000', par: 2, sig: 'eae53a1ac831c4cd' });
+  await ensureToday({ now: at(2026, 10, 23, 1), poster });
+  expect((await loadSigs()).has('eae53a1ac831c4cd')).toBe(true);
 });

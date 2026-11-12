@@ -5,8 +5,16 @@ import { redditPoster } from '../services/post';
 
 export const menu = new Hono();
 
+const SUMMARY: Record<EnsureResult['status'], (day: number) => string> = {
+  posted: (d) => `Posted No. ${d}`,
+  exists: (d) => `Already posted No. ${d}`,
+  busy: (d) => `Another run is posting No. ${d}, try again in a minute`,
+  failed: (d) => `Couldn't post No. ${d}, see the app logs`,
+  noPuzzle: (d) => `Couldn't post No. ${d}: no puzzle was generated, see the app logs`,
+};
+
 export const toastFor = (r: EnsureResult): string =>
-  (r.posted ? `Posted No. ${r.day}` : `Already posted No. ${r.day}`) +
+  SUMMARY[r.status](r.day) +
   (r.generated.length > 0 ? `, generated days ${r.generated.join(', ')}` : '');
 
 menu.post('/post-today', async (c) => {

@@ -6,6 +6,7 @@ import { LAYOUTS, makeDaily, type LayoutId } from '../kolam/daily';
 import {
   addSig,
   getAhead,
+  getDayForPost,
   getPostForDay,
   getPuzzle,
   getSticky,
@@ -24,7 +25,8 @@ export type Poster = {
   submitSticky(postId: string): Promise<string>;
 };
 
-export type EnsureResult = { day: number; posted: boolean; generated: number[] };
+export type EnsureStatus = 'posted' | 'exists' | 'busy' | 'failed' | 'noPuzzle';
+export type EnsureResult = { day: number; posted: boolean; status: EnsureStatus; generated: number[] };
 
 const BUFFER_DAYS = 7;
 const MAX_PER_RUN = 2;
@@ -76,9 +78,13 @@ const topUp = async (today: number, budgetMs: number): Promise<number[]> => {
       sigs.add(rec.sig);
       generated.push(d);
     } else {
-      // Another run stored this day first; its record stands. Keep its signature in view.
+      // Another run stored this day first; its record stands. Register its signature too,
+      // in case that run died before addSig (idempotent).
       const other = await getPuzzle(d);
-      if (other) sigs.add(other.sig);
+      if (other) {
+        await addSig(other.sig, d);
+        sigs.add(other.sig);
+      }
     }
     await setAhead(d);
     ahead = d;
@@ -93,25 +99,36 @@ export const ensureToday = async (deps: {
 }): Promise<EnsureResult> => {
   const today = Math.max(1, dayNumber(deps.now()));
   const generated = await topUp(today, deps.budgetMs ?? 5000);
+  const out = (status: EnsureStatus): EnsureResult => ({
+    day: today,
+    posted: status === 'posted',
+    status,
+    generated,
+  });
   const puzzle = await getPuzzle(today);
   if (!puzzle) {
     console.error(`ensureToday: no puzzle for day ${today}`);
-    return { day: today, posted: false, generated };
+    return out('noPuzzle');
   }
 
-  let posted = false;
   const existing = await getPostForDay(today);
-  if (existing && (await getSticky(existing))) return { day: today, posted, generated };
+  if (existing && (await getSticky(existing)) && (await getDayForPost(existing)) === today) {
+    return out('exists');
+  }
 
   const lockKey = `lock:post:${today}`;
-  if (!(await tryLock(lockKey, 60))) return { day: today, posted, generated };
+  if (!(await tryLock(lockKey, 60))) return out('busy');
+  let status: EnsureStatus = 'exists';
   try {
     let postId = await getPostForDay(today);
     if (!postId) {
       postId = await deps.poster.submitPost(puzzle, postDataFor(puzzle));
-      await setPostMapping(today, postId);
-      posted = true;
+      status = 'posted';
       console.log(`ensureToday: posted day ${today} as ${postId}`);
+    }
+    // Writes post:day first; also repairs a mapping half-written by an earlier run.
+    if ((await getDayForPost(postId)) !== today || status === 'posted') {
+      await setPostMapping(today, postId);
     }
     if (!(await getSticky(postId))) {
       try {
@@ -123,8 +140,9 @@ export const ensureToday = async (deps: {
     }
   } catch (e) {
     console.error(`ensureToday: posting day ${today} failed`, e);
+    status = status === 'posted' ? 'posted' : 'failed';
   } finally {
     await releaseLock(lockKey);
   }
-  return { day: today, posted, generated };
+  return out(status);
 };
