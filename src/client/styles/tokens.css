@@ -32,7 +32,10 @@ body {
 
 body {
   background-color: var(--floor-deep);
-  background-image: radial-gradient(120% 80% at 50% 38%, var(--floor) 0%, var(--floor-deep) 78%);
+  /* floor grain (self-contained SVG noise, as the prototype) over the dawn gradient */
+  background-image:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 .92  0 0 0 0 .82  0 0 0 .07 0'/></filter><rect width='220' height='220' filter='url(%23n)'/></svg>"),
+    radial-gradient(120% 80% at 50% 38%, var(--floor) 0%, var(--floor-deep) 78%);
   color: var(--rice);
   font-family: var(--font-body);
   font-size: 15px;
